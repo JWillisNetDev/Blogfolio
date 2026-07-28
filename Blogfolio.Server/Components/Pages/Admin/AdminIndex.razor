@@ -1,0 +1,15 @@
+@page "/admin"
+@inject AdminSchema Schema
+
+<PageTitle>Admin Dashboard</PageTitle>
+<MudText Typo="Typo.h4" GutterBottom="true">Admin</MudText>
+
+<MudStack Spacing="2" Style="max-width:420px">
+    @foreach (var e in Schema.Entities)
+    {
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" Class="justify-start"
+            StartIcon="@Icons.Material.Filled.TableChart" Href="@($"/admin/{e.Slug}")">
+            @e.Name
+        </MudButton>
+    }
+</MudStack>

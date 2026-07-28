@@ -27,7 +27,7 @@ public class AdminRepository(IDbContextFactory<BlogfolioDbContext> dbFactory, Ad
         return await db.FindAsync(entity.ClrType, keys);
     }
 
-    public async Task SaveAsync(AdminEntity entity, object[] keys, IReadOnlyDictionary<string, object?> values)
+    public async Task SaveAsync(AdminEntity entity, object?[]? keys, IReadOnlyDictionary<string, object?> values)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
 
@@ -82,7 +82,6 @@ public class AdminRepository(IDbContextFactory<BlogfolioDbContext> dbFactory, Ad
 
     public object?[] KeyValues(AdminEntity entity, object row)
         => entity.KeyFields.Select(k => k.Property!.GetValue(row)).ToArray();
-
     private static object? KeyOf(AdminEntity e, object row)
         => e.KeyFields.FirstOrDefault()?.Property?.GetValue(row);
 

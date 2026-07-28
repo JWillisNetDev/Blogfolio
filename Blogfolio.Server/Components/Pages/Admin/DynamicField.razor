@@ -1,0 +1,98 @@
+@using System.Globalization
+@using Blogfolio.Server.Admin
+@using Microsoft.Extensions.Options
+
+@if (Field.IsForeignKey)
+{
+    <MudSelect T="object" Label="@Field.Label" Value="Value" ValueChanged="Emit" Clearable="true">
+        @foreach (var opt in Options ?? [])
+        {
+            <MudSelectItem T="object" Value="@opt.Key">@opt.Label</MudSelectItem>
+        }
+    </MudSelect>
+}
+else if (Field.IsEnum)
+{
+    <MudSelect T="object" Label="@Field.Label" Value="Value" ValueChanged="Emit">
+        @foreach (var v in Enum.GetValues(Field.ClrType))
+        {
+            <MudSelectItem T="object" Value="@v">@v.ToString()</MudSelectItem>
+        }
+    </MudSelect>
+}
+else if (Field.ClrType == typeof(bool))
+{
+    <MudSwitch T="bool" Label="@Field.Label" Color="Color.Primary" Value="@(Value is bool b && b)"
+               ValueChanged="@(v => Emit(v))" />
+}
+else if (Field.ClrType == typeof(DateTime) || Field.ClrType == typeof(DateTimeOffset))
+{
+    <MudDatePicker Label="@Field.Label" Date="AsDate" DateChanged="OnDate" />
+}
+else
+{
+    <MudTextField T="string" Label="@Field.Label" InputType="@(Field.IsSecret ? InputType.Password : InputType.Text)"
+                  Value="@(Value?.ToString())" ValueChanged="OnText" />
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public AdminField Field { get; set; } = default!;
+
+    [Parameter]
+    public object? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<object?> ValueChanged { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<AdminOption>? Options { get; set; }
+
+    private DateTime? AsDate => Value switch
+    {
+        DateTime dt => dt,
+        DateTimeOffset dto => dto.LocalDateTime,
+        _ => null,
+    };
+
+    private Task Emit(object? v) => ValueChanged.InvokeAsync(v);
+
+    private Task OnDate(DateTime? dt)
+    {
+        object? v = dt;
+        if (dt is not null && Field.ClrType == typeof(DateTimeOffset))
+        {
+            v = new DateTimeOffset(dt.Value);
+        }
+
+        return ValueChanged.InvokeAsync(v);
+    }
+
+    private Task OnText(string? text)
+    {
+        object? v = string.IsNullOrWhiteSpace(text) ? null : Parse(text!);
+        return ValueChanged.InvokeAsync(v);
+    }
+
+    private object? Parse(string text)
+    {
+        var t = Field.ClrType;
+        if (t == typeof(string))
+        {
+            return text;
+        }
+        else if (t == typeof(Guid))
+        {
+            return Guid.TryParse(text, out var g) ? g : null;
+        }
+
+        try
+        {
+            return Convert.ChangeType(text, t, CultureInfo.InvariantCulture);
+        }
+        catch
+        {
+            return Value;
+        }
+    }
+}

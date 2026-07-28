@@ -1,0 +1,114 @@
+@page "/admin/{Slug}/edit/{Id?}"
+@rendermode InteractiveServer
+@inject AdminSchema Schema
+@inject AdminService Admin
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>@Title</PageTitle>
+
+@if (_entity is null)
+{
+    <MudAlert Severity="Severity.Error">Unknown entity.</MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.h5" GutterBottom="true">@Title</MudText>
+
+    <MudPaper Class="pa-4" Outlined="true" Style="max-width:640px">
+        @foreach (var field in _fields)
+        {
+            <div class="mb-3">
+                <DynamicField Field="field"
+                    Value="_values.GetValueOrDefault(field.Name)"
+                    ValueChanged="v => _values[field.Name] = v"
+                    Options="_fkOptions.GetValueOrDefault(field.Name)" />
+            </div>
+        }
+        <MudStack Row="true" Spacing="2" Class="mt-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
+            <MudButton Variant="Variant.Text" Href="@($"/admin/{Slug}")">Cancel</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter]
+    public string Slug { get; set; } = default!;
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    private AdminEntity? _entity;
+    private List<AdminField> _fields = [];
+    private readonly Dictionary<string, object?> _values = [];
+    private readonly Dictionary<string, IReadOnlyList<AdminOption>> _fkOptions = new();
+
+    private bool IsNew => string.IsNullOrEmpty(Id);
+    private string Title => _entity is null
+        ? "Admin"
+        : $"{(IsNew ? "New" : "Edit")} {_entity.Name}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Schema.Find(Slug) is not { } entity)
+        {
+            _entity = null;
+            return;
+        }
+        _entity = entity;
+
+        _fields = _entity.EditFields.Where(f => IsNew || !f.IsSecret).ToList();
+
+        foreach (var f in _fields.Where(f => f.IsForeignKey))
+        {
+            _fkOptions[f.Name] = await Admin.OptionsAsync(f);
+        }
+
+        if (!IsNew && await Admin.FindAsync(_entity, Keys()) is { } row)
+        {
+            foreach (var f in _fields.Where(f => f.Property is not null))
+            {
+                _values[f.Name] = f.Property!.GetValue(row);
+            }
+        }
+    }
+
+    private object?[] Keys()
+    {
+        var t = _entity!.KeyFields[0].ClrType;
+        object key;
+        if (t == typeof(Guid))
+        {
+            key = Guid.Parse(Id!);
+        }
+        else if (t == typeof(int))
+        {
+            key = int.Parse(Id!);
+        }
+        else
+        {
+            key = Id!;
+        }
+
+        return [key];
+    }
+
+    private async Task SaveAsync()
+    {
+       if (_entity is not { } entity)
+       {
+            return;
+       }
+
+       try
+       {
+            await Admin.SaveAsync(_entity, IsNew ? null : Keys(), _values);
+            Nav.NavigateTo($"/admin/{Slug}");
+       }
+       catch (Exception ex)
+       {
+        Snackbar.Add(ex.Message, Severity.Error);
+       }
+    }
+}

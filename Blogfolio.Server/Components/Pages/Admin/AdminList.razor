@@ -1,0 +1,78 @@
+@page "/admin/{Slug}"
+@rendermode InteractiveServer
+@inject AdminSchema Schema
+@inject AdminService Admin
+@inject IDialogService Dialog
+
+@if (_entity is null)
+{
+    <MudAlert Severity="Severity.Error">Unknown entity.</MudAlert>
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudText Typo="Typo.h5">@_entity.Name</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   Href="@($"/admin/{Slug}/edit")">New</MudButton>
+
+    </MudStack>
+
+    <MudTable Items="_rows" Hover="true" Dense="true" Bordered="true">
+        <HeaderContent>
+            @foreach (var col in _columns)
+            {
+                <MudTh>@col.Label</MudTh>
+            }
+        </HeaderContent>
+        <RowTemplate Context="row">
+            @foreach (var col in _columns)
+            {
+                <MudTd DataLabel="@col.Label">@(col.Property?.GetValue(row)?.ToString())</MudTd>
+            }
+            <MudTd Style="text-align:right">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Href="@EditHref(row)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnCLick="@(() => DeleteAsync(row))" />
+            </MudTd>
+
+        </RowTemplate>
+
+    </MudTable>
+    
+}
+
+@code {
+    [Parameter]
+    public string Slug { get; set; } = default!;
+
+    private AdminEntity? _entity;
+    private List<AdminField> _columns = [];
+    private IReadOnlyList<object> _rows = [];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Schema.Find(Slug) is not { } entity)
+        {
+            _entity = null;
+            return;
+        }
+        _entity = entity;
+        _columns = _entity.ListFields.Where(f => f.Property is not null).Take(6).ToList();
+        _rows = await Admin.ListAsync(_entity);
+    }
+
+    private string EditHref(object row) => $"/admin/{Slug}/edit/{Admin.Repository.KeyValues(_entity!, row).First()}";
+
+    private async Task DeleteAsync(object row)
+    {
+        if (await Dialog.ShowMessageBoxAsync("Delete", "Delete this record?", yesText: "Delete", cancelText: "Cancel") != true)
+        {
+            return;
+        }
+        await Admin.DeleteAsync(_entity!, Admin.Repository.KeyValues(_entity!, row));
+        await LoadAsync();
+    }
+}

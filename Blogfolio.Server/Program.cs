@@ -7,9 +7,8 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Blogfolio.Server.Identity;
 using Microsoft.AspNetCore.Identity;
 using Blogfolio.Data.Identity;
-using System.Reflection.Metadata;
-using Blogfolio.Server;
 using System.Security.Claims;
+using Blogfolio.Server.Admin;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,10 +18,12 @@ builder.Services.AddRazorComponents()
 
 builder.Services
     .AddMudServices()
-    .AddBlogfolioDb(builder.Configuration);
+    .AddBlogfolioDb(builder.Configuration)
+    .AddAdminServices();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingAuthenticationStateProvider>();
+
 
 builder.Services
     .AddAuthentication(IdentityConstants.ApplicationScheme)

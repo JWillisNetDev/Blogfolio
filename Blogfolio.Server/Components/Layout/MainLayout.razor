@@ -12,6 +12,13 @@
         <MudButton Href="/todos" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Checklist">
             To-Do
         </MudButton>
+        <AuthorizeView Roles="@Constants.Roles.Administrator">
+            <Authorized>
+                <MudButton Href="/admin" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.AdminPanelSettings">
+                    Admin Panel
+                </MudButton>
+            </Authorized>
+        </AuthorizeView>
         <AuthorizeView>
             <Authorized>
                 <MudText Class="mx-3">@context.User.Identity?.Name</MudText>
