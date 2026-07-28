@@ -1,0 +1,67 @@
+@page "/Account/Login"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<BlogfolioUser> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Log In</PageTitle>
+<h1>Log In</h1>
+
+<EditForm Model="Input" method="post" OnValidSubmit="LoginUser" FormName="login">
+    <DataAnnotationsValidator />
+
+    <p>
+        <label>Email</label>
+        <InputText @bind-Value="Input.Email" autocomplete="username" />
+        <ValidationMessage For="() => Input.Email" />   
+    </p>
+    <p>
+        <label>Password</label>
+        <InputText @bind-Value="Input.Password" type="password" autocomplete="password" />
+        <ValidationMessage For="() => Input.Password" />   
+    </p>
+
+    @if (_error is not null)
+    {
+        <p class="error">@_error</p>
+    }
+
+    <button type="submit">Log In</button>
+    <a href="/Account/Register">Create an Account</a>
+</EditForm>
+
+@code {
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? _error;
+
+    private async Task LoginUser()
+    {
+        var result = await SignInManager.PasswordSignInAsync(
+            Input.Email, Input.Password, true, false);
+        
+        if (!result.Succeeded)
+        {
+            _error = "Invalid login attempt.";
+            return;
+        }
+
+        var target = !string.IsNullOrEmpty(ReturnUrl)
+            ? ReturnUrl
+            : "/";
+        Navigation.NavigateTo(target);
+    }
+
+    private sealed class InputModel
+    {
+        [Required, EmailAddress]
+        public string Email { get; set; } = "";
+        
+        [Required, DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+    }
+}

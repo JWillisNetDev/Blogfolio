@@ -1,0 +1,123 @@
+@page "/todos"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Blogfolio.Data
+@using Blogfolio.Data.Models
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<BlogfolioDbContext> DbFactory
+
+<PageTitle>Todo Items</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">To-Dos</MudText>
+
+<MudPaper Class="pa-4 mb-4" Outlined="true">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudTextField @bind-Value="_newTitle" Placeholder="Todo Title" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Immediate="true" OnKeyDown="OnKeyDown" class="flex-grow-1" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="AddAsync" Disabled="@string.IsNullOrWhiteSpace(_newTitle)">
+            Add
+        </MudButton>
+
+    </MudStack>
+
+</MudPaper>
+
+@if (_todos.Count == 0)
+{
+    <MudText Typo="Typo.body2" Class="mud-text-secondary">Nothing - Add your first item.</MudText>
+}
+else
+{
+    <MudPaper Outlined="true">
+        <MudList T="TodoItem" Dense="true">
+            @foreach (var todo in _todos)
+            {
+                <MudListItem T="TodoItem">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudCheckBox
+                            T="bool"
+                            Value="todo.IsDone"
+                            ValueChanged="@(v => ToggleAsync(todo, v))"
+                            Color="Color.Success" />
+
+                        <MudText Class="@(todo.IsDone ? "flex-grow-1 mud-text-secondary text-decoration-line-through" : "flex-grow-1")">
+                            @todo.Name
+                        </MudText>
+
+                        <MudIconButton
+                            Icon="@Icons.Material.Filled.Delete"
+                            Color="Color.Error"
+                            Size="Size.Small"
+                            OnClick="@(() => DeleteAsync(todo))" />
+
+                    </MudStack>
+
+                </MudListItem>
+
+            }
+
+        </MudList>
+        
+    </MudPaper>
+
+}
+
+@code {
+    private string? _newTitle = "";
+    private readonly List<TodoItem> _todos = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _todos.AddRange(await db.TodoItems.OrderByDescending(t => t.CreatedAt).ToListAsync());
+        await base.OnInitializedAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await AddAsync();
+        }
+    }
+
+    private async Task AddAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newTitle))
+        {
+            return;
+        }
+
+        TodoItem item = new TodoItem()
+        {
+            Name = _newTitle.Trim(),
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.TodoItems.Add(item);
+        await db.SaveChangesAsync();
+
+        _todos.Insert(0, item);
+        _newTitle = null;
+    }
+
+    private async Task DeleteAsync(TodoItem todo)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.TodoItems.Attach(todo);
+        db.TodoItems.Remove(todo);
+        _todos.Remove(todo);
+        await db.SaveChangesAsync();
+    }
+
+    private async Task ToggleAsync(TodoItem todo, bool isDone)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.TodoItems.Attach(todo);
+        todo.IsDone = isDone;
+        await db.SaveChangesAsync();
+    }
+}

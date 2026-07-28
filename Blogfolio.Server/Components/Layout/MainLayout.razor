@@ -1,0 +1,45 @@
+﻿@inherits LayoutComponentBase
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudText Typo="Typo.h6">My Blogfolio</MudText>
+        <MudSpacer />
+        <MudButton Href="/todos" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Checklist">
+            To-Do
+        </MudButton>
+        <AuthorizeView>
+            <Authorized>
+                <MudText Class="mx-3">@context.User.Identity?.Name</MudText>
+                <form action="/Account/Logout" method="post">
+                    <AntiforgeryToken />
+                    <MudButton ButtonType="ButtonType.Submit" Color="Color.Inherit"
+                               StartIcon="@Icons.Material.Filled.Logout">
+                        Log Out
+                    </MudButton>
+                </form>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Href="/Account/Login" Color="Color.Inherit"
+                    StartIcon="@Icons.Material.Filled.Login">
+                    Log In
+                </MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudAppBar>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Small" class="mt-8">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

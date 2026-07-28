@@ -1,0 +1,72 @@
+@page "/Account/Register"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<BlogfolioUser> UserManager
+@inject SignInManager<BlogfolioUser> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Create Account</PageTitle>
+<h1>Create Account</h1>
+
+<EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
+    <DataAnnotationsValidator />
+
+    <p>
+        <label>Email</label>
+        <InputText @bind-Value="Input.Email" autocomplete="username" />
+        <ValidationMessage For="() => Input.Email" />
+    </p>
+    <p>
+        <label>Password</label>
+        <InputText @bind-Value="Input.Password" autocomplete="new-password" />
+        <ValidationMessage For="() => Input.Password" />
+    </p>
+
+    @if (_errors.Count > 0)
+    {
+        <ul class="error">
+            @foreach (var error in _errors)
+            {
+                <li>@error</li>
+            }
+        </ul>
+    }
+
+    <button type="submit">Sign Up</button>
+</EditForm>
+
+@code {
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    private List<string> _errors = [];
+
+    private async Task RegisterUser()
+    {
+        var user = new BlogfolioUser()
+        {
+            Email = Input.Email,
+            UserName = Input.Email,
+        };
+        var result = await UserManager.CreateAsync(user, Input.Password);
+
+        if (result.Succeeded)
+        {
+            await SignInManager.SignInAsync(user, isPersistent: true);
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            _errors = result.Errors.Select(e => e.Description).ToList();
+        }
+    }
+
+    private sealed class InputModel
+    {
+        [Required, EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required, DataType(DataType.Password), StringLength(100, MinimumLength = 8)]
+        public string Password { get; set; } = "";
+    }
+}
