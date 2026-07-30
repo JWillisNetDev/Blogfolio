@@ -9,11 +9,7 @@
 
 <PageTitle>@Title</PageTitle>
 
-@if (_form is not null)
-{
-    <DynamicComponent Type="_form.Component" Parameters="_formParams" />
-}
-else if (_entity is null)
+@if (_entity is null)
 {
     <MudAlert Severity="Severity.Error">Unknown entity.</MudAlert>
 }
