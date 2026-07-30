@@ -1,36 +1,44 @@
 using Blogfolio.Data.Identity;
+using Blogfolio.Server.Components.Admin;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Identity;
 
 namespace Blogfolio.Server.Admin.Handlers;
 
-// TODO: Could we generify this dynamic code?
-public sealed class UserAdminHandler(UserManager<BlogfolioUser> users) : IAdminHandler
+public sealed class UserAdminHandler(UserManager<BlogfolioUser> users) : AdminFormHandler<BlogfolioUser, UserAdminForm>
 {
-    public Type ClrType => typeof(BlogfolioUser);
+    public override Type Component => typeof(UserFormView);
 
-    public async Task SaveAsync(object?[]? keys, IReadOnlyDictionary<string, object?> values)
+    protected override async Task<UserAdminForm> LoadAsync(object?[] keys)
     {
-        var email = values.GetValueOrDefault("Email")?.ToString() ?? "";
-
-        if (keys is null)
-        {
-            var user = new BlogfolioUser { UserName = email, Email = email };
-            var password = values.GetValueOrDefault("Password")?.ToString() ?? "";
-            Check(await users.CreateAsync(user, password));
-        }
-        else
-        {
-            if (await users.FindByIdAsync(keys[0]!.ToString()!) is not { } user)
-            {
-                return;
-            }
-            user.Email = email;
-            user.UserName =email;
-            Check(await users.UpdateAsync(user));
-        }
+        return await users.FindByIdAsync(keys[0]!.ToString()!) is { } usr
+            ? new UserAdminForm { Email = usr.Email ?? "", EmailConfirmed = usr.EmailConfirmed }
+            : new UserAdminForm();
     }
 
-    public async Task DeleteAsync(object?[] keys)
+    protected override async Task SaveAsync(object?[]? keys, UserAdminForm form)
+    {
+        if (keys is null)
+        {
+            var usr = new BlogfolioUser
+            {
+                UserName = form.Email,
+                Email = form.Email,
+            };
+            Check(await users.CreateAsync(usr, form.Password!));
+            return;
+        }
+
+        if (await users.FindByIdAsync(keys[0]!.ToString()!) is not { } existing)
+        {
+            return;
+        }
+        existing.Email = existing.UserName = form.Email;
+        existing.EmailConfirmed = form.EmailConfirmed;
+        Check(await users.UpdateAsync(existing));
+    }
+
+    public override async Task DeleteAsync(object?[] keys)
     {
         if (await users.FindByIdAsync(keys[0]!.ToString()!) is { } user)
         {
@@ -45,4 +53,13 @@ public sealed class UserAdminHandler(UserManager<BlogfolioUser> users) : IAdminH
             throw new InvalidOperationException(string.Join("; ", res.Errors.Select(e => e.Description)));
         }
     }
+}
+
+public abstract class AdminFormBase<TForm> : ComponentBase
+{
+    [Parameter, EditorRequired]
+    public TForm Model { get; set; } = default!;
+    
+    [Parameter]
+    public EventCallback OnSubmit { get; set; }
 }

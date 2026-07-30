@@ -1,3 +1,5 @@
+@using Blogfolio.Server.Admin.Handlers
+@using Microsoft.EntityFrameworkCore.Metadata.Internal
 @page "/admin/{Slug}/edit/{Id?}"
 @rendermode InteractiveServer
 @inject AdminSchema Schema
@@ -7,7 +9,11 @@
 
 <PageTitle>@Title</PageTitle>
 
-@if (_entity is null)
+@if (_form is not null)
+{
+    <DynamicComponent Type="_form.Component" Parameters="_formParams" />
+}
+else if (_entity is null)
 {
     <MudAlert Severity="Severity.Error">Unknown entity.</MudAlert>
 }
@@ -16,19 +22,27 @@ else
     <MudText Typo="Typo.h5" GutterBottom="true">@Title</MudText>
 
     <MudPaper Class="pa-4" Outlined="true" Style="max-width:640px">
-        @foreach (var field in _fields)
+        @if (_formParams is not null)
         {
-            <div class="mb-3">
-                <DynamicField Field="field"
-                    Value="_values.GetValueOrDefault(field.Name)"
-                    ValueChanged="v => _values[field.Name] = v"
-                    Options="_fkOptions.GetValueOrDefault(field.Name)" />
-            </div>
+            <DynamicComponent Type="_form!.Component" Parameters="_formParams" />
+            <MudButton Variant="Variant.Text" HRef="@($"/admin/{Slug}")" Class="mt-2">Cancel</MudButton>
         }
-        <MudStack Row="true" Spacing="2" Class="mt-2">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
-            <MudButton Variant="Variant.Text" Href="@($"/admin/{Slug}")">Cancel</MudButton>
-        </MudStack>
+        else
+        {
+            @foreach (var field in _fields)
+            {
+                <div class="mb-3">
+                    <DynamicField Field="field"
+                        Value="_values.GetValueOrDefault(field.Name)"
+                        ValueChanged="v => _values[field.Name] = v"
+                        Options="_fkOptions.GetValueOrDefault(field.Name)" />
+                </div>
+            }
+            <MudStack Row="true" Spacing="2" Class="mt-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
+                <MudButton Variant="Variant.Text" Href="@($"/admin/{Slug}")">Cancel</MudButton>
+            </MudStack>
+        }
     </MudPaper>
 }
 
@@ -40,6 +54,10 @@ else
     public string? Id { get; set; }
 
     private AdminEntity? _entity;
+    private IAdminFormHandler? _form;
+    private object? _model;
+    private Dictionary<string, object?>? _formParams;
+
     private List<AdminField> _fields = [];
     private readonly Dictionary<string, object?> _values = [];
     private readonly Dictionary<string, IReadOnlyList<AdminOption>> _fkOptions = new();
@@ -56,7 +74,20 @@ else
             _entity = null;
             return;
         }
+        
         _entity = entity;
+
+        _form = Admin.FormFor(entity);
+        if (_form is not null)
+        {
+            _model = await _form.LoadFormAsync(IsNew ? null : Keys());
+            _formParams = new Dictionary<string, object?>()
+            {
+                ["Model"] = _model,
+                ["OnSubmit"] = EventCallback.Factory.Create(this, SaveFormAsync),
+            };
+            return;
+        }
 
         _fields = _entity.EditFields.Where(f => IsNew || !f.IsSecret).ToList();
 
@@ -94,6 +125,24 @@ else
         return [key];
     }
 
+    private async Task SaveFormAsync()
+    {
+        if (_form is null || _model is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _form.SaveFormAsync(IsNew ? null : Keys(), _model);
+            Nav.NavigateTo($"/admin/{Slug}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
     private async Task SaveAsync()
     {
        if (_entity is not { } entity)
@@ -108,7 +157,7 @@ else
        }
        catch (Exception ex)
        {
-        Snackbar.Add(ex.Message, Severity.Error);
+            Snackbar.Add(ex.Message, Severity.Error);
        }
     }
 }

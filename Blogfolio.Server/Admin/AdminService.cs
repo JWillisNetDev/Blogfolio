@@ -2,10 +2,10 @@ using Blogfolio.Server.Admin.Handlers;
 
 namespace Blogfolio.Server.Admin;
 
-public sealed  class AdminService(AdminRepository repo, IEnumerable<IAdminHandler> handlers)
+public sealed class AdminService(AdminRepository repo, IEnumerable<IAdminHandler> handlers)
 {
     public AdminRepository Repository => repo;
-    
+
     public Task<IReadOnlyList<object>> ListAsync(AdminEntity entity)
         => repo.ListAsync(entity);
 
@@ -21,6 +21,9 @@ public sealed  class AdminService(AdminRepository repo, IEnumerable<IAdminHandle
     public Task DeleteAsync(AdminEntity e, object?[] keys)
         => Handler(e) is { } handler ? handler.DeleteAsync(keys) : repo.DeleteAsync(e, keys);
 
-    private IAdminHandler? Handler(AdminEntity e)
-        => handlers.FirstOrDefault(h => h.ClrType == e.ClrType);
+    public IAdminFormHandler? FormFor(AdminEntity e)
+        => handlers.OfType<IAdminFormHandler>().FirstOrDefault(h => h.ClrType == e.ClrType);
+
+    private IAdminFieldHandler? Handler(AdminEntity e)
+        => handlers.OfType<IAdminFieldHandler>().FirstOrDefault(h => h.ClrType == e.ClrType);
 }
