@@ -1,0 +1,17 @@
+@using Blogfolio.Server.Admin.Handlers
+@using Microsoft.AspNetCore.Components.Forms
+@using MudBlazor
+@inherits AdminFormBase<IdentityRoleForm>
+
+<EditForm Model="Model" OnValidSubmit="@(() => OnSubmit.InvokeAsync())">
+    <DataAnnotationsValidator />
+    <MudTextField @bind-Value="Model.Name" Label="Name" For="() => Model.Name" />
+    <MudList T="string">
+        @foreach (var claim in Model.Claims)
+        {
+            <MudListItem Text="@claim" />
+        }
+    </MudList>
+    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary">Save</MudButton>
+</EditForm>
+  

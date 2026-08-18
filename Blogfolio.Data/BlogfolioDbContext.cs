@@ -1,5 +1,6 @@
 namespace Blogfolio.Data;
 
+using Blogfolio.Data.Annotations;
 using Blogfolio.Data.Identity;
 using Blogfolio.Data.Models;
 using Microsoft.AspNetCore.Identity;
@@ -30,13 +31,20 @@ public class BlogfolioDbContext(DbContextOptions<BlogfolioDbContext> options)
         base.OnModelCreating(builder);
 
         // Rename alls the base Asp.Net Identity tables
-        builder.Entity<IdentityRole>().ToTable("Roles");
-        builder.Entity<BlogfolioUser>().ToTable("Users");
+        builder.Entity<IdentityRole>().ToTable("Roles").AdminPanelEnabled();
+        builder.Entity<BlogfolioUser>(usr =>
+        {
+            usr.ToTable("Users").AdminPanelEnabled();
+            usr.Property(u => u.NormalizedEmail).AdminPanelReadOnly();
+            usr.Property(u => u.NormalizedUserName).AdminPanelReadOnly();
+            usr.Property(u => u.PasswordHash).AdminPanelHidden();
+            usr.Property(u => u.ConcurrencyStamp).AdminPanelHidden();
+        });
         builder.Entity<IdentityUserRole<string>>().ToTable("UserRoles");
         builder.Entity<IdentityUserClaim<string>>().ToTable("UserClaims");
         builder.Entity<IdentityUserLogin<string>>().ToTable("UserLogins");
         builder.Entity<IdentityUserToken<string>>().ToTable("UserTokens");
-        builder.Entity<IdentityRoleClaim<string>>().ToTable("Roleclaims");
+        builder.Entity<IdentityRoleClaim<string>>().ToTable("RoleClaims");
 
         // Set up converts to shim Sqlite for local dev and testing
         if (IsSqliteMode)

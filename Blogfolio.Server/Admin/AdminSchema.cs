@@ -1,4 +1,7 @@
+using System.ComponentModel;
+using System.Reflection;
 using Blogfolio.Data;
+using Blogfolio.Data.Annotations;
 using Blogfolio.Data.Identity;
 using Blogfolio.Data.Models;
 using Microsoft.AspNetCore.Identity;
@@ -9,16 +12,6 @@ namespace Blogfolio.Server.Admin;
 
 public sealed class AdminSchema
 {
-    // TODO: Turn this into an attribute `SecretAttribute`
-    private static readonly HashSet<string> SecretFields = [
-        "PasswordHash", // ...
-    ];
-
-    // TODO: Turn this into an attribute `AuditFieldAttribute`
-    private static readonly HashSet<string> SystemManaged = [
-        "CreatedAt", "LastUpdatedAt", "CreatedByUserId", "LastUpdatedByUserId",
-    ];
-
     private readonly Dictionary<string, AdminEntity> _bySlug;
 
     public AdminSchema(IDbContextFactory<BlogfolioDbContext> factory)
@@ -26,7 +19,7 @@ public sealed class AdminSchema
         using var db = factory.CreateDbContext();
         List<AdminEntity> entities = [];
 
-        foreach (var entType in db.Model.GetEntityTypes().Where(IsEntityTypeSupported))
+        foreach (var entType in db.Model.GetEntityTypes().Where(et => IsEntityTypeSupported(et) && !IsEntityHidden(et)))
         {
             List<AdminField> fields = entType.GetProperties()
                 .Where(p => !p.IsShadowProperty())
@@ -36,25 +29,21 @@ public sealed class AdminSchema
                     var generated = p.ValueGenerated != ValueGenerated.Never;
                     var fk = p.GetContainingForeignKeys().FirstOrDefault(); 
                     
-                    return new AdminField(
-                        Name: p.Name,
-                        Label: Humanize(p.Name),
-                        ClrType: p.ClrType,
-                        Property: p.PropertyInfo,
-                        IsKey: p.IsPrimaryKey(),
-                        ReadOnly: p.IsPrimaryKey() || generated || SystemManaged.Contains(p.Name),
-                        Hidden: SecretFields.Contains(p.Name),
-                        IsForeignKey: fk is not null,
-                        PrincipalType: fk?.PrincipalEntityType.ClrType,
-                        IsEnum: underlying.IsEnum);
+                    return new AdminField()
+                    {
+                        Name = p.Name,
+                        Label = Humanize(p.Name),
+                        ClrType = p.ClrType,
+                        Property = p.PropertyInfo,
+                        Field = p.FieldInfo,
+                        IsKey = p.IsPrimaryKey(),
+                        IsReadOnly = p.IsPrimaryKey() ||generated || IsReadOnly(p),
+                        IsHidden = IsHidden(p) || IsSecret(p),
+                        PrincipalType = fk?.PrincipalEntityType.ClrType,
+                    };
                 })
                 .ToList();
-
-            if (entType.ClrType == typeof(BlogfolioUser))
-            {
-                fields.Add(new AdminField("Password", "Password", typeof(string), null, false, false, false, false, null, false));
-            }
-
+                
             var name = entType.ClrType.Name;
             entities.Add(new AdminEntity(name, name.ToLowerInvariant(), entType.ClrType, fields));
         }
@@ -65,6 +54,30 @@ public sealed class AdminSchema
     public IReadOnlyCollection<AdminEntity> Entities => _bySlug.Values;
     public AdminEntity? Find(string slug) => _bySlug.GetValueOrDefault(slug.ToLowerInvariant());
     public AdminEntity? ByType(Type type) => _bySlug.Values.FirstOrDefault(e => e.ClrType == type);
+
+    private static bool IsEntityHidden(IEntityType typ)
+    {
+        return !AdminAnnotations.IsAdminPanelEnabledFor(typ)
+            || typ.ClrType.GetCustomAttribute<BrowsableAttribute>()?.Browsable == false;
+    }
+
+    private static bool IsHidden(IProperty prop)
+    {
+        return AdminAnnotations.IsAdminPanelHiddenFor(prop)
+            || prop.PropertyInfo?.GetCustomAttribute<BrowsableAttribute>()?.Browsable == false;
+    }
+
+    private static bool IsSecret(IProperty prop)
+    {
+        return AdminAnnotations.IsAdminPanelSecretFor(prop)
+            || prop.PropertyInfo?.GetCustomAttribute<PasswordPropertyTextAttribute>()?.Password == true;
+    }
+
+    private static bool IsReadOnly(IProperty prop)
+    {
+        return AdminAnnotations.IsAdminPanelReadOnlyFor(prop)
+            || prop.PropertyInfo?.GetCustomAttribute<ReadOnlyAttribute>()?.IsReadOnly == true;
+    }
 
     private static string Humanize(string name)
     {

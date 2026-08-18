@@ -11,8 +11,8 @@ public static class DependencyInjection
         collection.AddScoped<AdminSchema>();
         collection.AddScoped<AdminRepository>();
         collection.AddScoped<AdminService>();
-        collection.AddScoped<IAdminHandler, UserAdminHandler>();
-        collection.AddScoped<IAdminHandler, RoleAdminHandler>();
+        collection.AddScoped<IAdminCustomFormHandler, UserAdminHandler>();
+        collection.AddScoped<IAdminCustomFormHandler, UserRoleFormHandler>();
         return collection;
     }
 }

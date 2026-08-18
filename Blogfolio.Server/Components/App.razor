@@ -11,11 +11,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
     <link href="@Assets["_content/MudBlazor/MudBlazor.min.css"]" rel="stylesheet" />
     <ImportMap />
-    <HeadOutlet /> <!-- Consider adding rendermode="InteractiveServer" directive to enable global interactivity !-->
+    <HeadOutlet @rendermode="InteractiveServer" /> <!-- Consider adding rendermode="InteractiveServer" directive to enable global interactivity !-->
 </head>
 
 <body>
-    <Routes /> <!-- Consider adding rendermode="InteractiveServer" directive to enable global interactivity !-->
+    <Routes @rendermode="InteractiveServer" /> <!-- Consider adding rendermode="InteractiveServer" directive to enable global interactivity !-->
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["_content/MudBlazor/MudBlazor.min.js"]"></script>

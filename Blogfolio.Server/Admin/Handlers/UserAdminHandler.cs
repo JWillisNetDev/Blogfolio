@@ -1,40 +1,61 @@
 using Blogfolio.Data.Identity;
+using Blogfolio.Server.Components.Admin;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Blogfolio.Server.Admin.Handlers;
 
-// TODO: Could we generify this dynamic code?
-public sealed class UserAdminHandler(UserManager<BlogfolioUser> users) : IAdminHandler
+public sealed class UserAdminHandler : AdminCustomFormHandler<BlogfolioUser, UserAdminForm, UserAdminFormView>
 {
-    public Type ClrType => typeof(BlogfolioUser);
+    private readonly UserManager<BlogfolioUser> _users;
 
-    public async Task SaveAsync(object?[]? keys, IReadOnlyDictionary<string, object?> values)
+    public UserAdminHandler(UserManager<BlogfolioUser> users)
     {
-        var email = values.GetValueOrDefault("Email")?.ToString() ?? "";
-
-        if (keys is null)
-        {
-            var user = new BlogfolioUser { UserName = email, Email = email };
-            var password = values.GetValueOrDefault("Password")?.ToString() ?? "";
-            Check(await users.CreateAsync(user, password));
-        }
-        else
-        {
-            if (await users.FindByIdAsync(keys[0]!.ToString()!) is not { } user)
-            {
-                return;
-            }
-            user.Email = email;
-            user.UserName =email;
-            Check(await users.UpdateAsync(user));
-        }
+        _users = users ?? throw new ArgumentNullException(nameof(users));
     }
 
-    public async Task DeleteAsync(object?[] keys)
+    protected override async Task<UserAdminForm> LoadAsync(string key)
     {
-        if (await users.FindByIdAsync(keys[0]!.ToString()!) is { } user)
+        if (await _users.FindByIdAsync(key) is { } usr)
         {
-            Check(await users.DeleteAsync(user));
+            return new UserAdminForm()
+            {
+                Email = usr.Email ?? "",
+                EmailConfirmed = usr.EmailConfirmed,
+            };
+       }
+       throw new InvalidOperationException();
+    }
+
+    protected override async Task SaveAsync(string? key, UserAdminForm form)
+    {
+        if (string.IsNullOrEmpty(key))
+        {
+            var usr = new BlogfolioUser
+            {
+                UserName = form.Email,
+                Email = form.Email,
+            };
+            Check(await _users.CreateAsync(usr, form.Password!));
+            return;
+        }
+        
+        if (await _users.FindByIdAsync(key) is { } found)
+        {
+            found.Email = found.UserName = form.Email;
+            found.EmailConfirmed = form.EmailConfirmed;
+            Check(await _users.UpdateAsync(found));
+            return;
+        }
+
+        throw new InvalidOperationException("Failed to save.");
+    }
+
+    public override async Task DeleteAsync(string key)
+    {
+        if (await _users.FindByIdAsync(key) is { } user)
+        {
+            Check(await _users.DeleteAsync(user));
         }
     }
 

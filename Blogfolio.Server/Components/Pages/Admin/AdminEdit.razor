@@ -1,3 +1,5 @@
+@using System.Diagnostics.CodeAnalysis
+@using Blogfolio.Server.Admin.Handlers
 @page "/admin/{Slug}/edit/{Id?}"
 @rendermode InteractiveServer
 @inject AdminSchema Schema
@@ -16,19 +18,27 @@ else
     <MudText Typo="Typo.h5" GutterBottom="true">@Title</MudText>
 
     <MudPaper Class="pa-4" Outlined="true" Style="max-width:640px">
-        @foreach (var field in _fields)
+        @if (_formParams is not null)
         {
-            <div class="mb-3">
-                <DynamicField Field="field"
-                    Value="_values.GetValueOrDefault(field.Name)"
-                    ValueChanged="v => _values[field.Name] = v"
-                    Options="_fkOptions.GetValueOrDefault(field.Name)" />
-            </div>
+            <DynamicComponent Type="_form!.Component" Parameters="_formParams" />
+            <MudButton Variant="Variant.Text" HRef="@($"/admin/{Slug}")" Class="mt-2">Cancel</MudButton>
         }
-        <MudStack Row="true" Spacing="2" Class="mt-2">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
-            <MudButton Variant="Variant.Text" Href="@($"/admin/{Slug}")">Cancel</MudButton>
-        </MudStack>
+        else
+        {
+            @foreach (var field in _fields)
+            {
+                <div class="mb-3">
+                    <DynamicField Field="field"
+                        Value="_values.GetValueOrDefault(field.Name)"
+                        ValueChanged="v => _values[field.Name] = v"
+                        Options="_fkOptions.GetValueOrDefault(field.Name)" />
+                </div>
+            }
+            <MudStack Row="true" Spacing="2" Class="mt-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
+                <MudButton Variant="Variant.Text" Href="@($"/admin/{Slug}")">Cancel</MudButton>
+            </MudStack>
+        }
     </MudPaper>
 }
 
@@ -40,10 +50,15 @@ else
     public string? Id { get; set; }
 
     private AdminEntity? _entity;
+    private IAdminCustomFormHandler? _form;
+    private object? _model;
+    private Dictionary<string, object?>? _formParams;
+
     private List<AdminField> _fields = [];
     private readonly Dictionary<string, object?> _values = [];
     private readonly Dictionary<string, IReadOnlyList<AdminOption>> _fkOptions = new();
 
+    [MemberNotNullWhen(false, nameof(Id))]
     private bool IsNew => string.IsNullOrEmpty(Id);
     private string Title => _entity is null
         ? "Admin"
@@ -56,7 +71,20 @@ else
             _entity = null;
             return;
         }
+        
         _entity = entity;
+
+        _form = Admin.FormFor(entity);
+        if (_form is not null)
+        {
+            _model = await _form.LoadFormAsync(IsNew ? null : Id);
+            _formParams = new Dictionary<string, object?>()
+            {
+                ["Model"] = _model,
+                ["OnSubmit"] = EventCallback.Factory.Create(this, SaveFormAsync),
+            };
+            return;
+        }
 
         _fields = _entity.EditFields.Where(f => IsNew || !f.IsSecret).ToList();
 
@@ -65,7 +93,7 @@ else
             _fkOptions[f.Name] = await Admin.OptionsAsync(f);
         }
 
-        if (!IsNew && await Admin.FindAsync(_entity, Keys()) is { } row)
+        if (!IsNew && await Admin.FindAsync(_entity, [Id]) is { } row)
         {
             foreach (var f in _fields.Where(f => f.Property is not null))
             {
@@ -74,24 +102,22 @@ else
         }
     }
 
-    private object?[] Keys()
+    private async Task SaveFormAsync()
     {
-        var t = _entity!.KeyFields[0].ClrType;
-        object key;
-        if (t == typeof(Guid))
+        if (_form is null || _model is null)
         {
-            key = Guid.Parse(Id!);
-        }
-        else if (t == typeof(int))
-        {
-            key = int.Parse(Id!);
-        }
-        else
-        {
-            key = Id!;
+            return;
         }
 
-        return [key];
+        try
+        {
+            await _form.SaveFormAsync(IsNew ? null : Id, _model);
+            Nav.NavigateTo($"/admin/{Slug}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     private async Task SaveAsync()
@@ -103,12 +129,12 @@ else
 
        try
        {
-            await Admin.SaveAsync(_entity, IsNew ? null : Keys(), _values);
+            await Admin.SaveAsync(_entity, IsNew ? null : [Id], _values);
             Nav.NavigateTo($"/admin/{Slug}");
        }
        catch (Exception ex)
        {
-        Snackbar.Add(ex.Message, Severity.Error);
+            Snackbar.Add(ex.Message, Severity.Error);
        }
     }
 }

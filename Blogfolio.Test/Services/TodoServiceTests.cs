@@ -7,7 +7,7 @@ namespace Blogfolio.Test.Services;
 public class TodoServiceTests : DatabaseTestFixture
 {
     [Fact]
-    public async Task CreatedTodo_CreatesNewTodo()
+    public async Task It_CreatesNewTodoItems()
     {
         string title = "Test Title";
         string desc = "Test Description";

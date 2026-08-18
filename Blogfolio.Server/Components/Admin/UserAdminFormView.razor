@@ -1,0 +1,14 @@
+@using Blogfolio.Server.Admin.Handlers
+@using Microsoft.AspNetCore.Components.Forms
+@using MudBlazor
+@inherits AdminFormBase<UserAdminForm>
+
+<EditForm Model="Model" OnValidSubmit="@(() => OnSubmit.InvokeAsync())">
+    <DataAnnotationsValidator />
+    <MudTextField @bind-Value="Model.Email" Label="Email" For="() => Model.Email" />
+    <MudSwitch @bind-Value="Model.EmailConfirmed" Label="Emailed Confirmed" />
+    <MudTextField @bind-Value="Model.Password" Label="Password" InputType="InputType.Password"
+                  For="() => Model.Password" />
+    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary">Save</MudButton>
+</EditForm>
+  
