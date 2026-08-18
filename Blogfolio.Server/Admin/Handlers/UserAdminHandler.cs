@@ -1,48 +1,61 @@
 using Blogfolio.Data.Identity;
 using Blogfolio.Server.Components.Admin;
-using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Blogfolio.Server.Admin.Handlers;
 
-public sealed class UserAdminHandler(UserManager<BlogfolioUser> users) : AdminFormHandler<BlogfolioUser, UserAdminForm>
+public sealed class UserAdminHandler : AdminCustomFormHandler<BlogfolioUser, UserAdminForm, UserAdminFormView>
 {
-    public override Type Component => typeof(UserFormView);
+    private readonly UserManager<BlogfolioUser> _users;
 
-    protected override async Task<UserAdminForm> LoadAsync(object?[] keys)
+    public UserAdminHandler(UserManager<BlogfolioUser> users)
     {
-        return await users.FindByIdAsync(keys[0]!.ToString()!) is { } usr
-            ? new UserAdminForm { Email = usr.Email ?? "", EmailConfirmed = usr.EmailConfirmed }
-            : new UserAdminForm();
+        _users = users ?? throw new ArgumentNullException(nameof(users));
     }
 
-    protected override async Task SaveAsync(object?[]? keys, UserAdminForm form)
+    protected override async Task<UserAdminForm> LoadAsync(string key)
     {
-        if (keys is null)
+        if (await _users.FindByIdAsync(key) is { } usr)
+        {
+            return new UserAdminForm()
+            {
+                Email = usr.Email ?? "",
+                EmailConfirmed = usr.EmailConfirmed,
+            };
+       }
+       throw new InvalidOperationException();
+    }
+
+    protected override async Task SaveAsync(string? key, UserAdminForm form)
+    {
+        if (string.IsNullOrEmpty(key))
         {
             var usr = new BlogfolioUser
             {
                 UserName = form.Email,
                 Email = form.Email,
             };
-            Check(await users.CreateAsync(usr, form.Password!));
+            Check(await _users.CreateAsync(usr, form.Password!));
+            return;
+        }
+        
+        if (await _users.FindByIdAsync(key) is { } found)
+        {
+            found.Email = found.UserName = form.Email;
+            found.EmailConfirmed = form.EmailConfirmed;
+            Check(await _users.UpdateAsync(found));
             return;
         }
 
-        if (await users.FindByIdAsync(keys[0]!.ToString()!) is not { } existing)
-        {
-            return;
-        }
-        existing.Email = existing.UserName = form.Email;
-        existing.EmailConfirmed = form.EmailConfirmed;
-        Check(await users.UpdateAsync(existing));
+        throw new InvalidOperationException("Failed to save.");
     }
 
-    public override async Task DeleteAsync(object?[] keys)
+    public override async Task DeleteAsync(string key)
     {
-        if (await users.FindByIdAsync(keys[0]!.ToString()!) is { } user)
+        if (await _users.FindByIdAsync(key) is { } user)
         {
-            Check(await users.DeleteAsync(user));
+            Check(await _users.DeleteAsync(user));
         }
     }
 
@@ -53,13 +66,4 @@ public sealed class UserAdminHandler(UserManager<BlogfolioUser> users) : AdminFo
             throw new InvalidOperationException(string.Join("; ", res.Errors.Select(e => e.Description)));
         }
     }
-}
-
-public abstract class AdminFormBase<TForm> : ComponentBase
-{
-    [Parameter, EditorRequired]
-    public TForm Model { get; set; } = default!;
-    
-    [Parameter]
-    public EventCallback OnSubmit { get; set; }
 }

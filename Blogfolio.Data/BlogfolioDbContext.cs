@@ -31,7 +31,7 @@ public class BlogfolioDbContext(DbContextOptions<BlogfolioDbContext> options)
         base.OnModelCreating(builder);
 
         // Rename alls the base Asp.Net Identity tables
-        builder.Entity<IdentityRole>().ToTable("Roles");
+        builder.Entity<IdentityRole>().ToTable("Roles").AdminPanelEnabled();
         builder.Entity<BlogfolioUser>(usr =>
         {
             usr.ToTable("Users").AdminPanelEnabled();

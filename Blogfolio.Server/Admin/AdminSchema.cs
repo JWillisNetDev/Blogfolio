@@ -29,26 +29,21 @@ public sealed class AdminSchema
                     var generated = p.ValueGenerated != ValueGenerated.Never;
                     var fk = p.GetContainingForeignKeys().FirstOrDefault(); 
                     
-                    return new AdminField(
-                        Name: p.Name,
-                        Label: Humanize(p.Name),
-                        ClrType: p.ClrType,
-                        Property: p.PropertyInfo,
-                        IsKey: p.IsPrimaryKey(),
-                        ReadOnly: p.IsPrimaryKey() || generated || IsReadOnly(p),
-                        Hidden: IsHidden(p) || IsSecret(p),
-                        IsForeignKey: fk is not null,
-                        PrincipalType: fk?.PrincipalEntityType.ClrType,
-                        IsEnum: underlying.IsEnum);
+                    return new AdminField()
+                    {
+                        Name = p.Name,
+                        Label = Humanize(p.Name),
+                        ClrType = p.ClrType,
+                        Property = p.PropertyInfo,
+                        Field = p.FieldInfo,
+                        IsKey = p.IsPrimaryKey(),
+                        IsReadOnly = p.IsPrimaryKey() ||generated || IsReadOnly(p),
+                        IsHidden = IsHidden(p) || IsSecret(p),
+                        PrincipalType = fk?.PrincipalEntityType.ClrType,
+                    };
                 })
                 .ToList();
-
-            // Should have its own handler. AdminSchemaFieldsFactory?
-            if (entType.ClrType == typeof(BlogfolioUser))
-            {
-                fields.Add(new AdminField("Password", "Password", typeof(string), null, false, false, false, false, null, false));
-            }
-
+                
             var name = entType.ClrType.Name;
             entities.Add(new AdminEntity(name, name.ToLowerInvariant(), entType.ClrType, fields));
         }
